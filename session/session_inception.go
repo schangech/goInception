@@ -319,7 +319,7 @@ func (s *session) executeInc(ctx context.Context, sql string) (recordSets []sqle
 					continue
 				case *ast.InceptionCommitStmt:
 					/******* jwx added 将对同一个表的多条alter语句合并成一条 ******/
-					if s.inc.AlterAutoMerge {
+					if s.inc.AlterAutoMerge && s.opt.Check && !s.opt.Execute {
 						for _, info := range s.alterTableInfoList {
 							if len(info.alterStmtList) >= 2 {
 								merged := info.alterStmtList[0]
@@ -5555,6 +5555,10 @@ func (s *session) checkCreateIndex(table *ast.TableName, IndexName string,
 		}
 		t.Indexes = append(t.Indexes, index)
 	}
+	// 只有在使用改表工具时，会提示唯一索引风险
+	if s.myRecord.useOsc && unique == true {
+		s.appendErrorNo(ER_TOOL_BASED_UNIQUE_INDEX_WARNING)
+	}
 
 	if s.opt.Execute {
 		var rollbackSql string
@@ -8381,6 +8385,8 @@ func (s *session) checkInceptionVariables(number ErrorCode) bool {
 		return s.inc.CheckIdentifierLower
 	case ErCantChangeColumn:
 		return !s.inc.EnableChangeColumn
+	case ER_TOOL_BASED_UNIQUE_INDEX_WARNING:
+		return s.inc.CheckToolBasedUniqueIndex
 	}
 
 	return true
